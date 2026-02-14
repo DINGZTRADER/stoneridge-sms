@@ -83,10 +83,25 @@ const StudentList: React.FC = () => {
     setShowBulkActionsModal(false);
   };
 
-  const sortedStudents = useMemo(() => {
-    const sorted = [...students];
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredAndSortedStudents = useMemo(() => {
+    let result = [...students];
+
+    // Filter by search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      result = result.filter((student) =>
+        student.firstName.toLowerCase().includes(query) ||
+        student.lastName.toLowerCase().includes(query) ||
+        student.admissionNumber.toLowerCase().includes(query) ||
+        student.grade.toLowerCase().includes(query)
+      );
+    }
+
+    // Sort
     if (sortConfig.key) {
-      sorted.sort((a, b) => {
+      result.sort((a, b) => {
         let aVal: string;
         let bVal: string;
         if (sortConfig.key === 'fullName') {
@@ -101,8 +116,8 @@ const StudentList: React.FC = () => {
         return 0;
       });
     }
-    return sorted;
-  }, [students, sortConfig]);
+    return result;
+  }, [students, sortConfig, searchQuery]);
 
   const requestSort = (key: SortKey) => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -141,9 +156,29 @@ const StudentList: React.FC = () => {
         )}
       </div>
 
+      <div className="mb-4">
+        <label htmlFor="student-search" className="sr-only">Search Students</label>
+        <div className="relative">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            {/* Search Icon */}
+            <svg className="h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <input
+            type="text"
+            id="student-search"
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            placeholder="Search by name, admission number, or grade..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+      </div>
+
       <div className="overflow-x-auto">
-        {students.length === 0 ? (
-          <AlertMessage type="info" message="No students found. Add new students or import from CSV." className="mb-4" />
+        {filteredAndSortedStudents.length === 0 ? (
+          <AlertMessage type="info" message={searchQuery ? "No students match your search." : "No students found. Add new students or import from CSV."} className="mb-4" />
         ) : (
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -174,7 +209,7 @@ const StudentList: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {sortedStudents.map((student) => (
+              {filteredAndSortedStudents.map((student) => (
                 <tr key={student.id} className={student.medicalDetails?.allergies ? 'bg-red-50' : ''}>
                   {isAdmin && (
                     <td className="px-3 py-4 whitespace-nowrap text-center text-sm text-gray-500">
