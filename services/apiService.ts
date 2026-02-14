@@ -51,8 +51,6 @@ function save<T>(key: string, data: T): void {
   }
 }
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 // ── ApiService ──
 class ApiService {
   private students: Student[];
@@ -67,7 +65,6 @@ class ApiService {
   private admissionCounter: number;
 
   constructor() {
-    // Load from localStorage, falling back to seed constants on first use
     this.students = load<Student[]>(STORAGE_KEYS.students, [...STUDENT_DATA]);
     this.teachers = load<Teacher[]>(STORAGE_KEYS.teachers, [...TEACHER_DATA]);
     this.feeStructures = load<FeeStructure[]>(STORAGE_KEYS.feeStructures, [...FINANCE_DATA]);
@@ -80,7 +77,6 @@ class ApiService {
     this.admissionCounter = load<number>(STORAGE_KEYS.admissionCounter, STUDENT_DATA.length);
   }
 
-  // ── Persist helpers (call after every mutation) ──
   private persistStudents(): void { save(STORAGE_KEYS.students, this.students); }
   private persistTeachers(): void { save(STORAGE_KEYS.teachers, this.teachers); }
   private persistFees(): void { save(STORAGE_KEYS.feeStructures, this.feeStructures); }
@@ -92,28 +88,22 @@ class ApiService {
   private persistTimetable(): void { save(STORAGE_KEYS.timetable, this.timetable); }
   private persistCounter(): void { save(STORAGE_KEYS.admissionCounter, this.admissionCounter); }
 
-  // ── Admission Number generator (Audit §4: unique) ──
   private generateAdmissionNumber(): string {
     this.admissionCounter++;
     this.persistCounter();
     return `SR-2026-${this.admissionCounter.toString().padStart(3, '0')}`;
   }
 
-  // ══════════════════════════════════════════════════════════
   // STUDENTS
-  // ══════════════════════════════════════════════════════════
   async getStudents(): Promise<Student[]> {
-    await sleep(150);
     return this.students;
   }
 
   async getStudentById(id: string): Promise<Student | undefined> {
-    await sleep(100);
     return this.students.find((s) => s.id === id);
   }
 
   async addStudent(newStudent: Omit<Student, 'id' | 'admissionNumber'>): Promise<Student> {
-    await sleep(300);
     const id = `s${(this.students.length + 1).toString().padStart(3, '0')}`;
     const admissionNumber = this.generateAdmissionNumber();
 
@@ -128,7 +118,6 @@ class ApiService {
   }
 
   async bulkAddStudents(newStudents: Omit<Student, 'id' | 'admissionNumber'>[]): Promise<Student[]> {
-    await sleep(500);
     const added: Student[] = [];
     for (const ns of newStudents) {
       const id = `s${(this.students.length + 1).toString().padStart(3, '0')}`;
@@ -142,7 +131,6 @@ class ApiService {
   }
 
   async updateStudent(id: string, updatedFields: Partial<Student>): Promise<Student | undefined> {
-    await sleep(300);
     const index = this.students.findIndex((s) => s.id === id);
     if (index > -1) {
       this.students[index] = { ...this.students[index], ...updatedFields };
@@ -153,7 +141,6 @@ class ApiService {
   }
 
   async deleteStudent(id: string): Promise<boolean> {
-    await sleep(200);
     const index = this.students.findIndex((s) => s.id === id);
     if (index > -1) {
       this.students.splice(index, 1);
@@ -171,16 +158,12 @@ class ApiService {
     return this.students.filter((s) => s.isUPE).length;
   }
 
-  // ══════════════════════════════════════════════════════════
   // TEACHERS
-  // ══════════════════════════════════════════════════════════
   async getTeachers(): Promise<Teacher[]> {
-    await sleep(150);
     return this.teachers;
   }
 
   async getTeacherById(id: string): Promise<Teacher | undefined> {
-    await sleep(100);
     return this.teachers.find((t) => t.id === id);
   }
 
@@ -188,11 +171,8 @@ class ApiService {
     return this.teachers.length;
   }
 
-  // ══════════════════════════════════════════════════════════
   // FINANCE
-  // ══════════════════════════════════════════════════════════
   async getFeeStructures(): Promise<FeeStructure[]> {
-    await sleep(150);
     return this.feeStructures;
   }
 
@@ -201,7 +181,6 @@ class ApiService {
   }
 
   async updateFeeStructure(grade: string, tuition: number, scholasticMaterials: number): Promise<FeeStructure | undefined> {
-    await sleep(300);
     const index = this.feeStructures.findIndex((f) => f.grade === grade);
     if (index > -1) {
       this.feeStructures[index] = {
@@ -216,18 +195,14 @@ class ApiService {
     return undefined;
   }
 
-  // ══════════════════════════════════════════════════════════
-  // INVOICES (Audit §1 & §5)
-  // ══════════════════════════════════════════════════════════
+  // INVOICES
   async createInvoice(studentId: string): Promise<Invoice> {
-    await sleep(300);
     const student = this.students.find((s) => s.id === studentId);
     if (!student) throw new Error('Student not found');
 
     const fee = this.feeStructures.find((f) => f.grade === student.grade);
     if (!fee) throw new Error(`No fee structure for grade ${student.grade}`);
 
-    // Audit §1: UPE Compliance – Tuition = 0, Scholastic > 0
     const effectiveTuition = student.isUPE ? 0 : fee.tuition;
     const effectiveTotal = effectiveTuition + fee.scholasticMaterials;
 
@@ -249,12 +224,10 @@ class ApiService {
   }
 
   async getInvoices(): Promise<Invoice[]> {
-    await sleep(100);
     return this.invoices;
   }
 
   async markInvoicePaid(invoiceId: string): Promise<Invoice | undefined> {
-    await sleep(200);
     const index = this.invoices.findIndex((i) => i.id === invoiceId);
     if (index > -1) {
       this.invoices[index] = { ...this.invoices[index], status: 'PAID' };
@@ -274,11 +247,8 @@ class ApiService {
       .reduce((sum, inv) => sum + inv.total, 0);
   }
 
-  // ══════════════════════════════════════════════════════════
-  // MINISTRY COMPLIANCE FORMS
-  // ══════════════════════════════════════════════════════════
+  // MINISTRY FORMS
   async addLessonObservation(observation: Omit<LessonObservation, 'id'>): Promise<LessonObservation> {
-    await sleep(300);
     const id = `lo${(this.lessonObservations.length + 1).toString().padStart(3, '0')}`;
     const record = { ...observation, id };
     this.lessonObservations.push(record);
@@ -287,7 +257,6 @@ class ApiService {
   }
 
   async addPerformanceAgreement(agreement: Omit<PerformanceAgreement, 'id'>): Promise<PerformanceAgreement> {
-    await sleep(300);
     const id = `pa${(this.performanceAgreements.length + 1).toString().padStart(3, '0')}`;
     const record = { ...agreement, id };
     this.performanceAgreements.push(record);
@@ -296,7 +265,6 @@ class ApiService {
   }
 
   async addLessonLog(log: Omit<LessonLog, 'id'>): Promise<LessonLog> {
-    await sleep(300);
     const id = `ll${(this.lessonLogs.length + 1).toString().padStart(3, '0')}`;
     const record = { ...log, id };
     this.lessonLogs.push(record);
@@ -304,11 +272,8 @@ class ApiService {
     return record;
   }
 
-  // ══════════════════════════════════════════════════════════
-  // LESSON ATTENDANCE (Audit §3: per-lesson)
-  // ══════════════════════════════════════════════════════════
+  // LESSON ATTENDANCE
   async addLessonAttendance(entry: Omit<LessonAttendance, 'id'>): Promise<LessonAttendance> {
-    await sleep(200);
     const id = `la${(this.lessonAttendance.length + 1).toString().padStart(3, '0')}`;
     const record = { ...entry, id };
     this.lessonAttendance.push(record);
@@ -317,21 +282,15 @@ class ApiService {
   }
 
   async getLessonAttendance(): Promise<LessonAttendance[]> {
-    await sleep(100);
     return this.lessonAttendance;
   }
 
-  // ══════════════════════════════════════════════════════════
-  // TIMETABLE & CONFLICT DETECTION (Audit §3)
-  // ══════════════════════════════════════════════════════════
+  // TIMETABLE
   async getTimetable(): Promise<TimetableEntry[]> {
-    await sleep(100);
     return this.timetable;
   }
 
   async addTimetableEntry(entry: Omit<TimetableEntry, 'id'>): Promise<TimetableEntry> {
-    await sleep(200);
-
     // Conflict: same teacher, same day & time
     const conflict = this.timetable.find(
       (t) => t.teacherId === entry.teacherId && t.day === entry.day && t.time === entry.time
@@ -352,7 +311,6 @@ class ApiService {
   }
 
   async removeTimetableEntry(id: string): Promise<boolean> {
-    await sleep(100);
     const index = this.timetable.findIndex((t) => t.id === id);
     if (index > -1) {
       this.timetable.splice(index, 1);
@@ -362,21 +320,15 @@ class ApiService {
     return false;
   }
 
-  // ══════════════════════════════════════════════════════════
   // AGGREGATES
-  // ══════════════════════════════════════════════════════════
   async getStaffAttendanceRate(): Promise<number> {
     if (this.lessonAttendance.length === 0) return 100;
     const present = this.lessonAttendance.filter((a) => a.status === 'PRESENT').length;
     return Math.round((present / this.lessonAttendance.length) * 100);
   }
 
-  // ══════════════════════════════════════════════════════════
   // SEEDING
-  // ══════════════════════════════════════════════════════════
   async seedDatabase(): Promise<string> {
-    await sleep(500);
-
     // Ensure Pre-Primary fee
     if (!this.feeStructures.some((f) => f.grade === 'Pre-Primary')) {
       this.feeStructures.push({
@@ -426,7 +378,6 @@ class ApiService {
     return `Database seeded: ${this.students.length} students, ${this.invoices.length} invoices, ${this.feeStructures.length} fee structures saved to browser storage.`;
   }
 
-  // ── Full Reset (clears localStorage & reinitializes from seed constants) ──
   resetDatabase(): void {
     Object.values(STORAGE_KEYS).forEach((key) => localStorage.removeItem(key));
     this.students = [...STUDENT_DATA];
@@ -440,7 +391,6 @@ class ApiService {
     this.timetable = [];
     this.admissionCounter = STUDENT_DATA.length;
 
-    // Persist the clean slate
     this.persistStudents();
     this.persistTeachers();
     this.persistFees();
